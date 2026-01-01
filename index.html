@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Way to Diliara</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="https://i.imgur.com/ISiHksj.png">
+
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* --- GENEL AYARLAR & MOBİL OPTİMİZASYON --- */
+        body { 
+            background-color: #000; margin: 0; padding: 0; 
+            width: 100vw; height: 100vh; overflow: hidden; 
+            display: flex; justify-content: center; align-items: center; 
+            color: white; font-family: 'Press Start 2P', cursive; 
+            user-select: none; -webkit-touch-callout: none;
+            overscroll-behavior: none; /* Sayfa yenilemeyi engelle */
+        }
+        
+        #game-wrapper { 
+            position: relative; width: 800px; height: 600px; 
+            box-shadow: 0 0 50px rgba(255, 255, 255, 0.1); 
+            transform-origin: center center; 
+        }
+        #game-screen { 
+            width: 100%; height: 100%; position: relative; 
+            background-color: #111; overflow: hidden; border: 2px solid #333; 
+        }
+        
+        /* NESNELER */
+        .game-obj { image-rendering: pixelated; position: absolute; transition: transform 0.1s; pointer-events: none; z-index: 20; }
+        .bg { width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+        
+        /* Karakterler */
+        .character { z-index: 100; width: 64px; height: 64px; }
+        .npc { z-index: 90; width: 64px; height: 64px; position: absolute; transition: all 0.5s linear; }
+
+        /* ARAYÜZ KATMANLARI */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5000; display: flex; flex-direction: column; justify-content: flex-end; }
+        
+        /* SES KONTROLÜ */
+        #volume-control {
+            position: absolute; top: 20px; right: 20px; z-index: 9500;
+            display: flex; align-items: center; background: rgba(0,0,0,0.5);
+            padding: 10px; border-radius: 10px; border: 1px solid white;
+            pointer-events: auto; touch-action: manipulation;
+        }
+        #volume-slider { width: 100px; margin-left: 10px; cursor: pointer; }
+
+        /* DİL SEÇİM EKRANI */
+        #lang-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: auto; }
+        .lang-btn { background: #3498db; color: white; border: 2px solid #fff; padding: 20px 40px; margin: 10px; font-family: inherit; font-size: 16px; cursor: pointer; touch-action: manipulation; }
+        .lang-btn:hover { background: #2980b9; transform: scale(1.05); }
+
+        /* MENÜ */
+        #main-menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 10, 10, 1); z-index: 8000; display: none; flex-direction: column; justify-content: center; align-items: center; pointer-events: auto; }
+        .title-container { display: flex; align-items: center; margin-bottom: 20px; transform: scale(0.9); }
+        .menu-char { width: 80px; height: 80px; margin: 0 10px; }
+        h1.title { color: #ffcc00; font-size: 24px; line-height: 1.5; text-align: center; }
+        .menu-btn { background: #c0392b; color: white; border: 3px solid #fff; padding: 15px 30px; font-family: inherit; font-size: 18px; cursor: pointer; margin-top: 20px; touch-action: manipulation; }
+
+        /* DİYALOG KUTUSU */
+        #dialogue-box { 
+            position: absolute; bottom: 160px; left: 5%; width: 90%; 
+            background: rgba(0, 0, 0, 0.9); border: 2px solid white; 
+            padding: 15px; box-sizing: border-box; display: none; 
+            font-size: 12px; line-height: 1.6; text-align: center; color: #ffeb3b;
+            pointer-events: auto; z-index: 6000;
+        }
+
+        /* HİKAYE EKRANI */
+        #narrative-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: black; z-index: 7000; display: none;
+            justify-content: center; align-items: center; text-align: center;
+            padding: 40px; box-sizing: border-box;
+        }
+        #narrative-text {
+            font-size: 16px; line-height: 2; color: #fff; white-space: pre-wrap;
+        }
+
+        /* FİNAL SEÇİM */
+        #choice-container {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            display: none; flex-direction: column; gap: 20px; z-index: 7500; pointer-events: auto;
+        }
+        .choice-btn {
+            background: #222; color: white; border: 2px solid #fff;
+            padding: 20px 40px; font-family: inherit; font-size: 16px; cursor: pointer;
+            transition: 0.2s; text-align: center; touch-action: manipulation;
+        }
+        .choice-btn:hover { background: #444; transform: scale(1.05); }
+
+        #end-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; pointer-events: auto; }
+
+        /* MOBİL KONTROLLER - GELİŞTİRİLDİ */
+        #mobile-controls { width: 100%; height: 150px; display: flex; justify-content: space-between; padding: 20px; box-sizing: border-box; pointer-events: none; }
+        .d-pad, .action-area { pointer-events: auto; position: relative; }
+        .d-pad { width: 150px; height: 150px; } .action-area { width: 100px; height: 150px; display: flex; align-items: center; justify-content: center; }
+        
+        .btn { 
+            position: absolute; background: rgba(255, 255, 255, 0.15); border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 8px; 
+            display: flex; justify-content: center; align-items: center; font-size: 20px; color: rgba(255,255,255,0.7); 
+            user-select: none; backdrop-filter: blur(2px); touch-action: manipulation; 
+        }
+        .btn:active { background: rgba(255, 255, 255, 0.4); }
+        
+        #btn-up { top: 0; left: 50px; width: 50px; height: 50px; } #btn-down { bottom: 0; left: 50px; width: 50px; height: 50px; }
+        #btn-left { top: 50px; left: 0; width: 50px; height: 50px; } #btn-right { top: 50px; right: 0; width: 50px; height: 50px; }
+        #btn-action { position: static; width: 80px; height: 80px; border-radius: 50%; background: rgba(200, 50, 50, 0.5); font-size: 20px; border: 3px solid rgba(255,255,255,0.5); }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <div id="game-screen">
+            <div id="volume-control">
+                <span>🎵</span>
+                <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="0.4">
+            </div>
+
+            <img id="bg-layer" class="bg" src="">
+            <div id="objects-layer"></div>
+            
+            <img id="player" class="character game-obj" src="" style="display:none;">
+            <img id="npc-ismail" class="npc" src="" style="display:none;">
+            <img id="npc-diliara" class="npc" src="" style="display:none;">
+            <img id="npc-nika" class="npc" src="" style="display:none;">
+            
+            <img id="special-obj" class="game-obj" src="" style="display:none;">
+
+            <div id="narrative-screen">
+                <p id="narrative-text"></p>
+            </div>
+
+            <div id="choice-container">
+                <button class="choice-btn" id="btn-kiss" onclick="makeChoice(1)"></button>
+                <button class="choice-btn" id="btn-leave" onclick="makeChoice(2)"></button>
+            </div>
+
+            <div id="ui-layer">
+                <div id="dialogue-box"></div>
+                <div id="mobile-controls">
+                    <div class="d-pad">
+                        <div class="btn" id="btn-up">▲</div><div class="btn" id="btn-left">◀</div><div class="btn" id="btn-down">▼</div><div class="btn" id="btn-right">▶</div>
+                    </div>
+                    <div class="action-area"><div class="btn" id="btn-action">A</div></div>
+                </div>
+            </div>
+            
+            <div id="lang-screen">
+                <h1 style="color:#ffeb3b; margin-bottom: 30px;">SELECT LANGUAGE</h1>
+                <button class="lang-btn" onclick="setLang('tr')">TÜRKÇE</button>
+                <button class="lang-btn" onclick="setLang('ru')">РУССКИЙ</button>
+            </div>
+
+            <div id="main-menu">
+                <div class="title-container">
+                    <img src="https://i.imgur.com/ISiHksj.png" class="menu-char">
+                    <h1 class="title">Way to<br>Diliara</h1>
+                    <img src="https://i.imgur.com/kbKi5Q3.png" class="menu-char">
+                </div>
+                <button class="menu-btn" id="start-btn" onclick="startGame()"></button>
+            </div>
+
+            <div id="end-screen">
+                <h1 style="color:red; font-size:30px; margin-bottom:20px; text-align:center;" id="end-title"></h1>
+                <p onclick="location.reload()" style="cursor:pointer; border:1px solid white; padding:10px;" id="restart-text"></p>
+            </div>
+        </div>
+    </div>
+
+    <audio id="bg-music" loop>
+        <source src="https://commondatastorage.googleapis.com/codeskulptor-demos/riceracer_assets/music/win.ogg" type="audio/ogg"> 
+    </audio>
+
+<script>
+    // --- PWA SERVICE WORKER KAYIT ---
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('SW Başarılı:', reg.scope))
+                .catch(err => console.log('SW Hata:', err));
+        });
+    }
+
+    // --- 1. DİL VE METİNLER ---
+    let lang = 'tr';
+    const texts = {
+        tr: {
+            start: "HİKAYEYİ BAŞLAT",
+            kiss: "İsmail'i Öp",
+            leave: "Boşver Gitsin",
+            end_title: "SONSUZA DEK\nBERABER",
+            restart: "Başa Dön",
+            intro: "İsmail uyandı... Hayat tatsızdı, yaşamın heyecanını yitirmişti. Ama çalışmak zorundaydı, çünkü paranın ona mutluluk getireceğine inanıyordu.",
+            scene1_pc: "Bilgisayar... Sadece iş için kullanıyorum artık. Oyun oynamak bile zevk vermiyor.",
+            scene1_mirror: "Gözlerimin feri sönmüş... Yine de para kazanmak zorundayım.",
+            scene1_bed: "Yatak beni içine çekiyor ama kalkmalıyım.",
+            scene1_door: "Kilitli. Anahtarı bulup çıkmalıyım.",
+            scene1_key: "Anahtarı aldım. İsteksizce de olsa yola koyulalım.",
+            scene2_intro: "İsmail, Diliara'yı gördü... Gerçekten melek gibiydi. Ulaşılmaz olduğunu düşündü, konuşmaya çekindi. Ama kader ağlarını örüyordu...",
+            scene2_dial1: "Diliara: Pardon, bir pasaport kayboldu, yardım edebilir misin?",
+            scene2_dial2: "İsmail: Benim problemim değil. Çok işim var, başının çaresine bak.",
+            scene2_dial3: "(Diliara çok üzüldü... Ama o pasaportu bulmalı)",
+            scene2_found: "İşte burada! Sonunda buldum.",
+            scene3_intro: "İş çıkışı... Diliara, İsmail'den bir çakmak istedi. Sabahki kabalığı için üzgün olan İsmail, bu fırsatı değerlendirmeliydi.",
+            scene3_dial1: "Diliara: Pardon, çakmağın var mı acaba?",
+            scene3_dial2: "İsmail: Buyur kibrit. Ve... sabahki kabalığım için özür dilerim. Gergin bir gündü.",
+            scene3_dial3: "Diliara: Sorun değil, olabiliyor böyle şeyler...",
+            scene3_dial4: "İsmail: Telafi etmek isterim. Yarın sabah SUP turu yapalım mı?",
+            scene3_dial5: "Diliara: Olur, kulağa harika geliyor!",
+            scene4_intro: "Tarih: 31/07/2025, Saat: 04:00.\nİsmail, kızları lojmandan almaya geldi. Kalbi yerinden çıkacak gibiydi.",
+            scene4_waiting: "(Kızlar geldi, yola çıkıyorlar...)",
+            scene5_inner: "İsmail: (İçinden) Deniz güzel ama Diliara daha güzel...",
+            scene5_photo: "(Diliara ve Nika fotoğraf çekiniyor...)",
+            scene6_intro: "Harika bir günün ardından lojmana dönüş vakti gelmişti. Nika içeri girdi, İsmail ve Diliara yalnız kaldı.",
+            scene6_dial1: "İsmail: Bugün harikaydı. Bir sonraki izin gününü baş başa geçirelim mi?",
+            scene6_dial2: "Diliara: Çok isterim.",
+            scene7_intro: "Tarih: 04/08/2025, Saat: 14:00.\nİlk buluşma. Zaman kaybetmeden yola koyuldular.",
+            scene7_compliment1: "İsmail: Çok güzel görünüyorsun...",
+            scene7_compliment2: "Diliara: Teşekkür ederim...",
+            scene7_reply: "İsmail: Hadi zaman kaybetmeyelim.",
+            scene7_go: "...",
+            scene8_photo: "(İsmail sahilde Diliara'nın fotoğraflarını çeker...)",
+            scene8_hungry: "Diliara: Karnım acıktı...",
+            scene8_return: "İsmail: Benim de. Hadi dönelim.",
+            scene9_intro: "Dönüş yolu 3 saat sürdü. Diliara yorgun düşüp başını İsmail'in omzuna koydu. O an, İsmail'in içinde bir aşk yeşermeye başladı...",
+            scene10_thought: "İsmail: Diliara dışarıda bekliyor. Paketi alıp hemen çıkayım.",
+            scene10_got: "Cheeseburger menüleri aldım. Diliara bekliyor.",
+            scene11_intro: "Cheeseburgerlerin üzerine kola dökülmüştü... Ama bu felaket, en güzel anılarından birine dönüştü.",
+            scene11_laugh: "Diliara: Hahaha! İnanılmaz... İğrenç görünüyor ama yemin ederim ömrümde yediğim en güzel hamburger!",
+            scene12_intro: "Lojman kapısı... Diliara gitmek istemiyordu, İsmail de öyle. O an gelmişti.",
+            scene12_go: "İsmail: Artık gitmem gerek... Saat geç oldu.",
+            scene12_stay: "Diliara: Gitmesen? Biraz daha kalsan...",
+            scene12_ok: "İsmail: Tamam... Biraz daha.",
+            scene12_music: "(Arabada müzik çalmaya başlar... Ortam ısınır...)",
+            final_happy: "Diliara İsmail'i öper...\nVe her şey böyle başladı... MUTLU SON.",
+            final_sad: "Sessizce ayrıldılar... Hikaye başlamadan bitti."
+        },
+        ru: {
+            start: "НАЧАТЬ ИСТОРИЮ",
+            kiss: "Поцеловать Исмаила",
+            leave: "Уйти",
+            end_title: "ВМЕСТЕ\nНАВСЕГДА",
+            restart: "Начать заново",
+            intro: "Исмаил проснулся... Жизнь казалась пресной, он потерял вкус к жизни. Но работать было нужно, он верил, что деньги принесут счастье.",
+            scene1_pc: "Компьютер... Использую только для работы. Даже игры больше не радуют.",
+            scene1_mirror: "Глаза потухли... Но нужно зарабатывать деньги.",
+            scene1_bed: "Кровать манит меня, но нужно вставать.",
+            scene1_door: "Заперто. Нужно найти ключ и выйти.",
+            scene1_key: "Я взял ключ. Неохотно отправляюсь в путь.",
+            scene2_intro: "Исмаил увидел Дилиару... Она была как ангел. Он подумал, что она недосягаема, и побоялся заговорить. Но судьба плела свои сети...",
+            scene2_dial1: "Дилиара: Извините, потерялся паспорт, не могли бы вы помочь?",
+            scene2_dial2: "Исмаил: Это не моя проблема. У меня много работы, разбирайся сама.",
+            scene2_dial3: "(Дилиара очень расстроилась... Но она должна найти паспорт)",
+            scene2_found: "Вот он! Наконец-то нашел.",
+            scene3_intro: "Конец смены... Дилиара попросила у Исмаила зажигалку. Исмаил, сожалея о своей утренней грубости, должен был воспользоваться этим шансом.",
+            scene3_dial1: "Дилиара: Извините, у вас есть зажигалка?",
+            scene3_dial2: "Исмаил: Держи спички. И... извини за утреннюю грубость. Был напряженный день.",
+            scene3_dial3: "Дилиара: Ничего страшного, всякое бывает...",
+            scene3_dial4: "Исмаил: Хочу загладить вину. Покатаемся завтра утром на SUP-бордах?",
+            scene3_dial5: "Дилиара: С удовольствием, звучит отлично!",
+            scene4_intro: "Дата: 31/07/2025, Время: 04:00.\nИсмаил приехал забрать девушек. Сердце готово было выпрыгнуть из груди.",
+            scene4_waiting: "(Девушки пришли, они отправляются в путь...)",
+            scene5_inner: "Исмаил: (Про себя) Море красивое, но Дилиара красивее...",
+            scene5_photo: "(Дилиара и Ника фотографируются...)",
+            scene6_intro: "Пришло время возвращаться в общежитие после чудесного дня. Ника вошла внутрь, Исмаил и Дилиара остались одни.",
+            scene6_dial1: "Исмаил: Сегодня было чудесно. Проведем следующий выходной вдвоем?",
+            scene6_dial2: "Дилиара: Я бы очень хотела.",
+            scene7_intro: "Дата: 04/08/2025, Время: 14:00.\nПервое свидание. Они отправились в путь, не теряя времени.",
+            scene7_compliment1: "Исмаил: Ты очень красиво выглядишь...",
+            scene7_compliment2: "Дилиара: Спасибо...",
+            scene7_reply: "Исмаил: Пойдем, не будем терять время.",
+            scene7_go: "...",
+            scene8_photo: "(Исмаил фотографирует Дилиару на пляже...)",
+            scene8_hungry: "Дилиара: Я проголодалась...",
+            scene8_return: "Исмаил: Я тоже. Давай возвращаться.",
+            scene9_intro: "Обратная дорога заняла 3 часа. Дилиара устала и положила голову на плечо Исмаила. В этот момент в душе Исмаила начала зарождаться любовь...",
+            scene10_thought: "Исмаил: Дилиара ждет снаружи. Возьму пакет и сразу выйду.",
+            scene10_got: "Я взял меню с чизбургерами. Дилиара ждет.",
+            scene11_intro: "Кола разлилась на чизбургеры... Но эта катастрофа превратилась в одно из самых прекрасных воспоминаний.",
+            scene11_laugh: "Дилиара: Хахаха! Невероятно... Выглядит ужасно, но клянусь, это самый вкусный бургер в моей жизни!",
+            scene12_intro: "У дверей общежития... Дилиара не хотела уходить, и Исмаил тоже. Этот момент настал.",
+            scene12_go: "Исмаил: Мне пора идти... Уже поздно.",
+            scene12_stay: "Дилиара: Не уходи... Останься еще немного...",
+            scene12_ok: "Исмаил: Хорошо... Еще чуть-чуть.",
+            scene12_music: "(В машине начинает играть музыка... Атмосфера накаляется...)",
+            final_happy: "Дилиара целует Исмаила...\nИ так все началось... СЧАСТЛИВЫЙ КОНЕЦ.",
+            final_sad: "Они тихо разошлись... История закончилась, не успев начаться."
+        }
+    };
+
+    function t(key) { return texts[lang][key] || key; }
+
+    function setLang(l) {
+        lang = l;
+        document.getElementById('lang-screen').style.display = 'none';
+        document.getElementById('main-menu').style.display = 'flex';
+        document.getElementById('start-btn').innerText = t('start');
+        document.getElementById('btn-kiss').innerText = t('kiss');
+        document.getElementById('btn-leave').innerText = t('leave');
+        document.getElementById('end-title').innerText = t('end_title');
+        document.getElementById('restart-text').innerText = t('restart');
+    }
+
+    // --- 2. ASSETLER ---
+    const assets = {
+        bg: {
+            s1: 'https://i.imgur.com/diWxiuE.jpeg', s2: 'https://i.imgur.com/WQTC5RR.jpeg',
+            s3: 'https://i.imgur.com/Mtw31SF.jpeg', s4: 'https://i.imgur.com/Ueludly.jpeg',
+            s5: 'https://i.imgur.com/OlXYwda.jpeg', s6: 'https://i.imgur.com/IfrHdzu.jpeg',
+            s7: 'https://i.imgur.com/IfrHdzu.jpeg', s8: 'https://i.imgur.com/jGvUOZf.jpeg',
+            s9: 'https://i.imgur.com/V7TucwX.jpeg', s10: 'https://i.imgur.com/vkO1Xh4.jpeg',
+            s11: 'https://i.imgur.com/OCymoea.jpeg', s12: 'https://i.imgur.com/Ueludly.jpeg'
+        },
+        char: {
+            ismail: { idle: 'https://i.imgur.com/kbKi5Q3.png', right: 'https://i.imgur.com/vFNHkZ4.png', left: 'https://i.imgur.com/xysu3D3.png', up: 'https://i.imgur.com/AtjW19E.png', down: 'https://i.imgur.com/debi3sf.png', work: 'https://i.imgur.com/pFURCZj.png' },
+            diliara: { normal: 'https://i.imgur.com/ISiHksj.png', angel: 'https://i.imgur.com/3EM9mvN.png' },
+            nika: 'https://i.imgur.com/ebp19v6.png'
+        },
+        items: {
+            key: 'https://i.imgur.com/8jrIOOf.png', door: 'https://i.imgur.com/v88be8h.png',
+            mirror: 'https://i.imgur.com/Fq47Yth.png', pc: 'https://i.imgur.com/JCkBv60.png',
+            bed: 'https://i.imgur.com/vW8L2uI.png', desk: 'https://i.imgur.com/rv0ePY6.png',
+            passport: 'https://i.imgur.com/eYe7ghV.png', match: 'https://i.imgur.com/vF01aFR.png',
+            sup: 'https://i.imgur.com/b10aRt3.png', car: 'https://i.imgur.com/vYk2N5Q.png',
+            burger: 'https://i.imgur.com/rI5Fy8B.png', box: 'https://i.imgur.com/BN3L1rb.png'
+        }
+    };
+
+    // --- 3. OYUN DEĞİŞKENLERİ ---
+    let currentScene = 0;
+    let playerX = 200, playerY = 400;
+    let isTalking = false, isCutscene = false;
+    let input = { up: false, down: false, left: false, right: false, action: false };
+    
+    let state = { hasKey: false, keySpawned: false, passportFound: false, passportSpawned: false, matchFound: false, burgerFound: false };
+
+    const el = {
+        bg: document.getElementById('bg-layer'),
+        player: document.getElementById('player'),
+        dialogue: document.getElementById('dialogue-box'),
+        narrativeScreen: document.getElementById('narrative-screen'),
+        narrativeText: document.getElementById('narrative-text'),
+        npcIsmail: document.getElementById('npc-ismail'),
+        npcDiliara: document.getElementById('npc-diliara'),
+        npcNika: document.getElementById('npc-nika'),
+        objLayer: document.getElementById('objects-layer'),
+        special: document.getElementById('special-obj')
+    };
+
+    const music = document.getElementById('bg-music');
+    const volumeSlider = document.getElementById('volume-slider');
+    volumeSlider.addEventListener('input', (e) => {
+        music.volume = e.target.value;
+    });
+    // Mobilde slider'ı kaydırırken oyuna basmayı engelle
+    document.getElementById('volume-control').addEventListener('mousedown', (e) => e.stopPropagation());
+    document.getElementById('volume-control').addEventListener('touchstart', (e) => e.stopPropagation());
+
+    function playNarrative(text, callback) {
+        isCutscene = true;
+        el.narrativeScreen.style.display = 'flex';
+        el.narrativeText.innerText = "";
+        document.getElementById('mobile-controls').style.display = 'none';
+        let i = 0;
+        function typeWriter() {
+            if (i < text.length) {
+                el.narrativeText.innerText += text.charAt(i);
+                i++;
+                setTimeout(typeWriter, 50);
+            } else {
+                setTimeout(() => {
+                    el.narrativeScreen.style.display = 'none';
+                    isCutscene = false;
+                    if (callback) callback();
+                }, 2500);
+            }
+        }
+        typeWriter();
+    }
+
+    // --- SAHNE YÖNETİMİ ---
+    function loadScene(sceneId) {
+        currentScene = sceneId;
+        el.objLayer.innerHTML = '';
+        el.player.style.display = 'none';
+        el.npcIsmail.style.display = 'none';
+        el.npcDiliara.style.display = 'none';
+        el.npcNika.style.display = 'none';
+        el.special.style.display = 'none';
+        el.special.style.transition = 'none';
+        el.special.style.transform = 'none';
+        document.getElementById('mobile-controls').style.display = 'none';
+
+        switch(sceneId) {
+            case 1: // ODA
+                setupPlayableScene(assets.bg.s1, assets.char.ismail.idle, 200, 400);
+                spawnItem('door', 350, 20, assets.items.door, 80);
+                spawnItem('pc', 100, 100, assets.items.pc, 60);
+                spawnItem('mirror', 650, 100, assets.items.mirror, 40);
+                spawnItem('bed', 80, 400, assets.items.bed, 100);
+                break;
+
+            case 2: // OTEL
+                playNarrative(t('scene2_intro'), () => {
+                    setupPlayableScene(assets.bg.s2, assets.char.diliara.angel, 400, 500);
+                    spawnItem('desk', 50, 80, assets.items.desk, 150);
+                    el.npcIsmail.src = assets.char.ismail.work;
+                    el.npcIsmail.style.left = '90px'; el.npcIsmail.style.top = '70px'; el.npcIsmail.style.zIndex = '15';
+                    el.npcIsmail.style.display = 'block';
+                });
+                break;
+
+            case 3: // SOKAK
+                playNarrative(t('scene3_intro'), () => {
+                    setupPlayableScene(assets.bg.s3, assets.char.ismail.idle, 100, 300);
+                    el.npcDiliara.src = assets.char.diliara.normal;
+                    el.npcDiliara.style.left = '600px'; el.npcDiliara.style.top = '300px';
+                    el.npcDiliara.style.display = 'block';
+                });
+                break;
+
+            case 4: runCinematicSequence(4); break;
+            case 5: runCinematicSequence(5); break;
+            case 6: runCinematicSequence(6); break;
+            case 7: runCinematicSequence(7); break;
+            case 8: runCinematicSequence(8); break;
+            case 9: runCinematicSequence(9); break;
+
+            case 10: // MC DONALDS
+                setupPlayableScene(assets.bg.s10, assets.char.ismail.idle, 400, 500);
+                showDialogue(t('scene10_thought'), () => {
+                    spawnItem('box', 400, 200, assets.items.box, 50);
+                });
+                break;
+
+            case 11: runCinematicSequence(11); break;
+
+            case 12: // FİNAL
+                playNarrative(t('scene12_intro'), () => {
+                    el.bg.src = assets.bg.s12;
+                    el.player.src = assets.char.ismail.idle; el.player.style.left='300px'; el.player.style.top='400px'; el.player.style.display='block';
+                    el.npcDiliara.src = assets.char.diliara.normal; el.npcDiliara.style.left='400px'; el.npcDiliara.style.top='400px'; el.npcDiliara.style.display='block';
+                    
+                    showDialogue(t('scene12_go'), () => {
+                        showDialogue(t('scene12_stay'), () => {
+                            showDialogue(t('scene12_ok'), () => {
+                                showDialogue(t('scene12_music'), () => {
+                                    document.getElementById('choice-container').style.display = 'flex';
+                                });
+                            });
+                        });
+                    });
+                });
+                break;
+        }
+    }
+
+    function setupPlayableScene(bg, charSprite, x, y) {
+        el.bg.src = bg;
+        el.player.src = charSprite;
+        el.player.style.display = 'block';
+        playerX = x; playerY = y;
+        updatePlayerPos();
+        document.getElementById('mobile-controls').style.display = 'flex';
+    }
+
+    function spawnItem(id, x, y, src, w) {
+        let img = document.createElement('img');
+        img.src = src; img.id = id;
+        img.className = 'game-obj item';
+        img.style.left = x + 'px'; img.style.top = y + 'px'; img.style.width = w + 'px';
+        el.objLayer.appendChild(img);
+    }
+
+    // --- ETKİLEŞİM MANTIĞI ---
+    function checkInteraction() {
+        if(isTalking) return;
+
+        if(currentScene === 1) {
+            if(checkCol('pc')) showDialogue(t('scene1_pc'));
+            else if(checkCol('mirror')) showDialogue(t('scene1_mirror'));
+            else if(checkCol('bed')) showDialogue(t('scene1_bed'));
+            else if(checkCol('door')) {
+                if(state.hasKey) { 
+                    loadScene(2); 
+                } else {
+                    if(!state.keySpawned) {
+                        showDialogue(t('scene1_door'));
+                        setTimeout(() => {
+                            spawnItem('key', 200, 500, assets.items.key, 30);
+                            state.keySpawned = true;
+                        }, 1000);
+                    } else {
+                        showDialogue(t('scene1_door'));
+                    }
+                }
+            }
+            else if(checkCol('key')) {
+                document.getElementById('key').style.display = 'none'; state.hasKey = true;
+                showDialogue(t('scene1_key'));
+            }
+        }
+        else if(currentScene === 2) {
+            if(checkDist(el.player, el.npcIsmail, 150)) {
+                showDialogue(t('scene2_dial1'), () => {
+                    showDialogue(t('scene2_dial2'), () => {
+                        showDialogue(t('scene2_dial3'), () => {
+                            if(!state.passportSpawned) {
+                                spawnItem('passport', 700, 100, assets.items.passport, 30);
+                                state.passportSpawned = true;
+                            }
+                        });
+                    });
+                });
+            }
+            else if(checkCol('passport')) {
+                document.getElementById('passport').style.display = 'none'; state.passportFound = true;
+                showDialogue(t('scene2_found'), () => { loadScene(3); });
+            }
+        }
+        else if(currentScene === 3) {
+            if(checkDist(el.player, el.npcDiliara, 100)) {
+                if(!state.matchFound) {
+                    showDialogue(t('scene3_dial1'));
+                    setTimeout(() => spawnItem('match', 300, 300, assets.items.match, 30), 500);
+                } else {
+                    showDialogue(t('scene3_dial2'), () => {
+                        showDialogue(t('scene3_dial3'), () => {
+                            showDialogue(t('scene3_dial4'), () => {
+                                showDialogue(t('scene3_dial5'), () => { loadScene(4); });
+                            });
+                        });
+                    });
+                }
+            }
+            else if(checkCol('match')) {
+                document.getElementById('match').style.display = 'none'; state.matchFound = true;
+            }
+        }
+        else if(currentScene === 10) {
+            if(checkCol('box')) {
+                document.getElementById('box').style.display = 'none';
+                showDialogue(t('scene10_got'), () => { loadScene(11); });
+            }
+        }
+    }
+
+    // --- SİNEMATİK SİSTEMİ ---
+    function runCinematicSequence(sceneId) {
+        document.getElementById('mobile-controls').style.display = 'none';
+        
+        if(sceneId === 4) { // LOJMAN
+            playNarrative(t('scene4_intro'), () => {
+                el.bg.src = assets.bg.s4;
+                el.npcIsmail.style.display = 'block'; el.npcIsmail.style.left = '650px'; el.npcIsmail.style.top = '400px'; el.npcIsmail.src = assets.char.ismail.left;
+                
+                el.npcDiliara.style.display = 'block'; el.npcDiliara.style.left = '50px'; el.npcDiliara.style.top = '400px'; el.npcDiliara.src = assets.char.diliara.normal;
+                el.npcNika.style.display = 'block'; el.npcNika.style.left = '100px'; el.npcNika.style.top = '400px'; el.npcNika.src = assets.char.nika;
+                
+                showDialogue(t('scene4_waiting'), () => {
+                    setTimeout(() => {
+                        el.npcDiliara.style.transition = 'left 4s'; el.npcDiliara.style.left = '550px';
+                        el.npcNika.style.transition = 'left 4s'; el.npcNika.style.left = '600px';
+                    }, 500);
+                    setTimeout(() => { loadScene(5); }, 5000);
+                });
+            });
+        }
+        else if(sceneId === 5) { // DENİZ
+            el.bg.src = assets.bg.s5;
+            spawnItem('sup1', 200, 350, assets.items.sup, 80); spawnItem('sup2', 400, 350, assets.items.sup, 80); spawnItem('sup3', 600, 350, assets.items.sup, 80);
+            
+            el.npcIsmail.style.display = 'block'; el.npcIsmail.style.left = '210px'; el.npcIsmail.style.top = '320px'; el.npcIsmail.style.zIndex='95';
+            el.npcDiliara.style.display = 'block'; el.npcDiliara.style.left = '410px'; el.npcDiliara.style.top = '320px'; el.npcDiliara.style.zIndex='95';
+            el.npcNika.style.display = 'block'; el.npcNika.style.left = '610px'; el.npcNika.style.top = '320px'; el.npcNika.style.zIndex='95';
+
+            setTimeout(() => {
+                showDialogue(t('scene5_inner'), () => {
+                    setTimeout(() => {
+                        showDialogue(t('scene5_photo'), () => {
+                            setTimeout(() => { loadScene(6); }, 2000);
+                        });
+                    }, 2000);
+                });
+            }, 1000);
+        }
+        else if(sceneId === 6) { // LOJMAN DÖNÜŞ
+            playNarrative(t('scene6_intro'), () => {
+                el.bg.src = assets.bg.s6;
+                el.npcIsmail.style.display = 'block'; el.npcIsmail.style.left = '200px';
+                el.npcDiliara.style.display = 'block'; el.npcDiliara.style.left = '300px';
+                el.npcNika.style.display = 'block'; el.npcNika.style.left = '350px';
+                
+                setTimeout(() => { el.npcNika.style.transition = 'left 2s'; el.npcNika.style.left = '-100px'; }, 1000);
+                
+                setTimeout(() => {
+                    showDialogue(t('scene6_dial1'), () => {
+                        showDialogue(t('scene6_dial2'), () => { loadScene(7); });
+                    });
+                }, 4000);
+            });
+        }
+        else if(sceneId === 7) { // FIRST DATE
+            playNarrative(t('scene7_intro'), () => {
+                el.bg.src = assets.bg.s7;
+                el.npcIsmail.style.display = 'block'; el.npcIsmail.style.left = '200px';
+                el.npcDiliara.style.display = 'block'; el.npcDiliara.style.left = '300px';
+                
+                setTimeout(() => {
+                    showDialogue(t('scene7_compliment1'), () => {
+                        setTimeout(() => {
+                            showDialogue(t('scene7_compliment2'), () => {
+                                setTimeout(() => {
+                                    showDialogue(t('scene7_reply'), () => {
+                                        showDialogue(t('scene7_go'), () => loadScene(8));
+                                    });
+                                }, 1500);
+                            });
+                        }, 1500);
+                    });
+                }, 1000);
+            });
+        }
+        else if(sceneId === 8) { // PHASELIS
+            el.bg.src = assets.bg.s8;
+            el.npcIsmail.style.display = 'block'; el.npcIsmail.style.left = '350px'; el.npcIsmail.style.top = '450px'; el.npcIsmail.style.zIndex = '100';
+            el.npcDiliara.style.display = 'block'; el.npcDiliara.style.left = '450px'; el.npcDiliara.style.top = '450px'; el.npcDiliara.style.zIndex = '100';
+
+            showDialogue(t('scene8_photo'), () => {
+                showDialogue(t('scene8_hungry'), () => {
+                    showDialogue(t('scene8_return'), () => loadScene(9));
+                });
+            });
+        }
+        else if(sceneId === 9) { // ARABA
+            playNarrative(t('scene9_intro'), () => {
+                el.bg.src = assets.bg.s9;
+                el.special.src = assets.items.car;
+                el.special.style.display = 'block';
+                el.special.style.width = '200px';
+                
+                el.special.style.left = '800px'; 
+                el.special.style.top = '600px';
+                el.special.style.transform = 'scale(0.45)';
+                
+                setTimeout(() => { 
+                    el.special.style.transition = 'left 6s linear, top 6s linear'; 
+                    el.special.style.left = '-200px'; 
+                    el.special.style.top = '-100px'; 
+                }, 100);
+
+                setTimeout(() => { loadScene(10); }, 6500);
+            });
+        }
+        else if(sceneId === 11) { // SOKAK YEMEK
+            playNarrative(t('scene11_intro'), () => {
+                el.bg.src = assets.bg.s11;
+                el.objLayer.innerHTML = '';
+                spawnItem('eaten_burger', 380, 450, assets.items.burger, 40);
+                
+                el.npcIsmail.style.display = 'block'; el.npcIsmail.style.left = '300px'; el.npcIsmail.style.top = '450px'; el.npcIsmail.src=assets.char.ismail.right;
+                el.npcDiliara.style.display = 'block'; el.npcDiliara.style.left = '450px'; el.npcDiliara.style.top = '450px'; el.npcDiliara.src=assets.char.diliara.normal;
+
+                showDialogue(t('scene11_laugh'), () => {
+                    loadScene(12);
+                });
+            });
+        }
+    }
+
+    // --- YARDIMCI FONKSİYONLAR ---
+    function makeChoice(option) {
+        document.getElementById('choice-container').style.display = 'none';
+        if(option === 1) {
+            showDialogue(t('final_happy'), () => {
+                document.getElementById('end-screen').style.display = 'flex';
+            });
+        } else {
+            showDialogue(t('final_sad'), () => {
+                location.reload();
+            });
+        }
+    }
+
+    function showDialogue(text, callback) {
+        isTalking = true;
+        el.dialogue.innerText = text;
+        el.dialogue.style.display = 'block';
+        setTimeout(() => {
+            el.dialogue.style.display = 'none';
+            isTalking = false;
+            if(callback) callback();
+        }, Math.max(2500, text.length * 80)); 
+    }
+
+    function checkCol(id) {
+        const item = document.getElementById(id);
+        if(!item || item.style.display === 'none') return false;
+        return checkDist(el.player, item, 80);
+    }
+
+    function checkDist(obj1, obj2, dist) {
+        const r1 = obj1.getBoundingClientRect();
+        const r2 = obj2.getBoundingClientRect();
+        const d = Math.hypot(r1.x - r2.x, r1.y - r2.y);
+        const scale = document.getElementById('game-wrapper').getBoundingClientRect().width / 800;
+        return d < (dist * scale);
+    }
+
+    function updatePlayerPos() {
+        el.player.style.left = playerX + 'px';
+        el.player.style.top = playerY + 'px';
+        if (currentScene !== 2) {
+            if(input.right) el.player.src = assets.char.ismail.right;
+            else if(input.left) el.player.src = assets.char.ismail.left;
+            else if(input.up) el.player.src = assets.char.ismail.up;
+            else if(input.down) el.player.src = assets.char.ismail.down;
+        }
+    }
+
+    function gameLoop() {
+        if(!isTalking && !isCutscene && document.getElementById('mobile-controls').style.display !== 'none') {
+            if(input.up) playerY -= 5;
+            if(input.down) playerY += 5;
+            if(input.left) playerX -= 5;
+            if(input.right) playerX += 5;
+            
+            if(playerX < 0) playerX = 0; if(playerY < 0) playerY = 0;
+            if(playerX > 736) playerX = 736; if(playerY > 536) playerY = 536;
+
+            if(input.action) { checkInteraction(); input.action = false; }
+            updatePlayerPos();
+        }
+        requestAnimationFrame(gameLoop);
+    }
+
+    function setupControls() {
+        const btn = (id, key) => {
+            const el = document.getElementById(id);
+            el.addEventListener('touchstart', (e)=>{e.preventDefault(); input[key]=true});
+            el.addEventListener('touchend', (e)=>{e.preventDefault(); input[key]=false});
+            el.addEventListener('mousedown', ()=>{input[key]=true});
+            el.addEventListener('mouseup', ()=>{input[key]=false});
+        };
+        btn('btn-up','up'); btn('btn-down','down'); btn('btn-left','left'); btn('btn-right','right'); btn('btn-action','action');
+        
+        window.addEventListener('keydown', (e)=>{
+            if(e.key==='ArrowUp') input.up=true; if(e.key==='ArrowDown') input.down=true;
+            if(e.key==='ArrowLeft') input.left=true; if(e.key==='ArrowRight') input.right=true;
+            if(e.key===' ') input.action=true;
+        });
+        window.addEventListener('keyup', (e)=>{
+            if(e.key==='ArrowUp') input.up=false; if(e.key==='ArrowDown') input.down=false;
+            if(e.key==='ArrowLeft') input.left=false; if(e.key==='ArrowRight') input.right=false;
+            if(e.key===' ') input.action=false;
+        });
+    }
+
+    function fitScreen() {
+        const s = Math.min(window.innerWidth/800, window.innerHeight/600);
+        document.getElementById('game-wrapper').style.transform = `scale(${s})`;
+    }
+    window.addEventListener('resize', fitScreen);
+    window.addEventListener('load', fitScreen);
+
+    function startGame() {
+        music.volume = 0.4;
+        music.play().catch(e => console.log("Müzik izni gerekiyor"));
+        
+        document.getElementById('main-menu').style.display = 'none';
+        setupControls();
+        gameLoop();
+        
+        playNarrative(t('intro'), () => {
+            loadScene(1);
+        });
+    }
+</script>
+</body>
+</html>
