@@ -177,7 +177,7 @@
         </div>
     </div>
 
-    <audio id="bg-music" loop>
+    <audio id="bg-music" loop playsinline>
         <source src="https://commondatastorage.googleapis.com/codeskulptor-demos/riceracer_assets/music/win.ogg" type="audio/ogg"> 
     </audio>
 
@@ -190,6 +190,9 @@
                 .catch(err => console.log('SW Hata:', err));
         });
     }
+
+    // Müzik değişkenini en tepeye alalım ki her yerden erişebilelim
+    const music = document.getElementById('bg-music');
 
     // --- 1. DİL VE METİNLER ---
     let lang = 'tr';
@@ -302,6 +305,14 @@
 
     function setLang(l) {
         lang = l;
+        // MOBİL MÜZİK DÜZELTMESİ:
+        // İlk kullanıcı etkileşiminde (dil seçimi) müziği çok kısa çalıp durduruyoruz.
+        // Bu, tarayıcının ses kilidini açmasını sağlar.
+        music.play().then(() => {
+            music.pause();
+            music.currentTime = 0;
+        }).catch(e => console.log("Ses kilidi açılamadı (normal olabilir):", e));
+
         document.getElementById('lang-screen').style.display = 'none';
         document.getElementById('main-menu').style.display = 'flex';
         document.getElementById('start-btn').innerText = t('start');
@@ -324,7 +335,8 @@
         char: {
             ismail: { idle: 'https://i.imgur.com/kbKi5Q3.png', right: 'https://i.imgur.com/vFNHkZ4.png', left: 'https://i.imgur.com/xysu3D3.png', up: 'https://i.imgur.com/AtjW19E.png', down: 'https://i.imgur.com/debi3sf.png', work: 'https://i.imgur.com/pFURCZj.png' },
             diliara: { normal: 'https://i.imgur.com/ISiHksj.png', angel: 'https://i.imgur.com/3EM9mvN.png' },
-            nika: 'https://i.imgur.com/ebp19v6.png'
+            nika: 'https://i.imgur.com/ebp19v6.png',
+            parrot: 'https://i.imgur.com/kQqUsEk.png' // Papağan eklendi
         },
         items: {
             key: 'https://i.imgur.com/8jrIOOf.png', door: 'https://i.imgur.com/v88be8h.png',
@@ -357,7 +369,7 @@
         special: document.getElementById('special-obj')
     };
 
-    const music = document.getElementById('bg-music');
+    
     const volumeSlider = document.getElementById('volume-slider');
     volumeSlider.addEventListener('input', (e) => {
         music.volume = e.target.value;
@@ -408,6 +420,9 @@
                 spawnItem('pc', 100, 100, assets.items.pc, 60);
                 spawnItem('mirror', 650, 100, assets.items.mirror, 40);
                 spawnItem('bed', 80, 400, assets.items.bed, 100);
+                
+                // PAPAĞAN EKLENDİ (Sol Alt Köşe)
+                spawnItem('npc-parrot', 30, 480, assets.char.parrot, 50); 
                 break;
 
             case 2: // OTEL
@@ -774,8 +789,9 @@
     window.addEventListener('load', fitScreen);
 
     function startGame() {
+        // Müzik zaten setLang'da açıldı, burada sadece volüm ayarla ve oynatmayı garantile
         music.volume = 0.4;
-        music.play().catch(e => console.log("Müzik izni gerekiyor"));
+        music.play().catch(e => console.log("Müzik izni gerekiyor (startGame):", e));
         
         document.getElementById('main-menu').style.display = 'none';
         setupControls();
